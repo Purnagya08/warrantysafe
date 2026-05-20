@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WarrantyType {
+  MANUFACTURER
+  EXTENDED
+  STORE
+}
+
+enum DocumentType {
+  RECEIPT
+  INVOICE
+  MANUAL
+  WARRANTY_CARD
+  OTHER
+}
+
+enum RepairStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  WARRANTY_EXPIRY
+  REPAIR_UPDATE
+  DOCUMENT_PROCESSED
+  GENERAL
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  name          String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  products      Product[]
+  documents     Document[]
+  notifications Notification[]
+}
+
+model Product {
+  id            String     @id @default(uuid())
+  userId        String
+  name          String
+  brand         String?
+  category      String?
+  purchaseDate  DateTime?
+  purchasePrice Decimal?   @db.Decimal(10, 2)
+  retailerName  String?
+  serialNumber  String?
+  modelNumber   String?
+  notes         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  warranty      Warranty?
+  documents     Document[]
+  repairs       Repair[]
+
+  @@index([userId])
+}
+
+model Warranty {
+  id              String       @id @default(uuid())
+  productId       String       @unique
+  startDate       DateTime
+  endDate         DateTime
+  warrantyType    WarrantyType
+  providerName    String?
+  coverageDetails String?
+  reminderSent    Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  product         Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id            String       @id @default(uuid())
+  productId     String
+  userId        String
+  type          DocumentType @default(OTHER)
+  fileUrl       String
+  fileName      String
+  fileSize      Int
+  mimeType      String
+  extractedData Json?
+  uploadedAt    DateTime     @default(now())
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([userId])
+}
+
+model Repair {
+  id           String       @id @default(uuid())
+  productId    String
+  issue        String
+  status       RepairStatus @default(PENDING)
+  repairCenter String?
+  cost         Decimal?     @db.Decimal(10, 2)
+  startDate    DateTime?
+  endDate      DateTime?
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  type        NotificationType @default(GENERAL)
+  title       String
+  body        String?
+  isRead      Boolean          @default(false)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime         @default(now())
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
