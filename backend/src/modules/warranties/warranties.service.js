@@ -1,76 +1,44 @@
-const { z } = require('zod');
-const prisma = require('../../config/db');
-const { AppError } = require('../../utils/errors');
-const { ensureProductOwnership } = require('../products/products.service');
+const prisma = require('../../config/db')
 
-const warrantySchema = z.object({
-  productId: z.string().min(1),
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
-  warrantyType: z.enum(['MANUFACTURER', 'EXTENDED', 'STORE']),
-  providerName: z.string().optional().nullable(),
-  coverageDetails: z.string().optional().nullable(),
-  reminderSent: z.boolean().optional(),
-});
-
-const updateWarrantySchema = warrantySchema.omit({ productId: true }).partial();
-
-const ensureWarrantyOwnership = async (warrantyId, userId) => {
-  const warranty = await prisma.warranty.findFirst({
-    where: { id: warrantyId, product: { userId } },
-    include: { product: true },
-  });
-
-  if (!warranty) {
-    throw new AppError('Warranty not found', 404);
-  }
-
-  return warranty;
-};
-
-const listWarranties = async (userId) => {
+const getAll = async (userId) => {
   return prisma.warranty.findMany({
     where: { product: { userId } },
-    include: { product: true },
+    include: { product: { select: { id: true, name: true, brand: true } } },
     orderBy: { endDate: 'asc' },
-  });
-};
+  })
+}
 
-const createWarranty = async (userId, payload) => {
-  const data = warrantySchema.parse(payload);
-  await ensureProductOwnership(data.productId, userId);
-  return prisma.warranty.create({ data });
-};
+const getOne = async (id, userId) => {
+  const warranty = await prisma.warranty.findFirst({
+    where: { id, product: { userId } },
+    include: { product: true },
+  })
+  if (!warranty) throw { statusCode: 404, message: 'Warranty not found' }
+  return warranty
+}
 
-const getWarranty = async (userId, warrantyId) => {
-  return ensureWarrantyOwnership(warrantyId, userId);
-};
+const create = async (userId, data) => {
+  const product = await prisma.product.findFirst({ where: { id: data.productId, userId } })
+  if (!product) throw { statusCode: 404, message: 'Product not found' }
+  return prisma.warranty.create({ data })
+}
 
-const updateWarranty = async (userId, warrantyId, payload) => {
-  await ensureWarrantyOwnership(warrantyId, userId);
-  const data = updateWarrantySchema.parse(payload);
-  return prisma.warranty.update({ where: { id: warrantyId }, data });
-};
+const update = async (id, userId, data) => {
+  const warranty = await prisma.warranty.findFirst({ where: { id, product: { userId } } })
+  if (!warranty) throw { statusCode: 404, message: 'Warranty not found' }
+  return prisma.warranty.update({ where: { id }, data })
+}
 
-const getExpiringWarranties = async (userId) => {
-  const now = new Date();
-  const inThirtyDays = new Date(now);
-  inThirtyDays.setDate(inThirtyDays.getDate() + 30);
-
+const getExpiring = async (userId) => {
+  const now = new Date()
+  const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
   return prisma.warranty.findMany({
     where: {
       product: { userId },
-      endDate: { gte: now, lte: inThirtyDays },
+      endDate: { gte: now, lte: in30 },
     },
-    include: { product: true },
-    orderBy: { endDate: 'asc' },
-  });
-};
+    include: { product: { select: { id: true, name: true, brand: true } } },
+  })
+}
 
-module.exports = {
-  listWarranties,
-  createWarranty,
-  getWarranty,
-  updateWarranty,
-  getExpiringWarranties,
-};
+module.exports = { getAll, getOne, create, update, getExpiring }

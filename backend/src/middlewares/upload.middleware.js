@@ -1,37 +1,31 @@
-const fs = require('fs');
-const path = require('path');
-const multer = require('multer');
+const multer = require('multer')
+const path = require('path')
+const fs = require('fs')
 
-const uploadsDir = path.resolve(process.cwd(), process.env.UPLOADS_DIR || 'uploads');
-
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+const uploadsDir = process.env.UPLOADS_DIR || 'uploads'
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '-');
-    cb(null, `${Date.now()}-${baseName}${ext}`);
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`
+    cb(null, `${unique}${path.extname(file.originalname)}`)
   },
-});
+})
+
+const fileFilter = (req, file, cb) => {
+  const allowed = ['application/pdf', 'image/jpeg', 'image/png']
+  if (allowed.includes(file.mimetype)) {
+    cb(null, true)
+  } else {
+    cb(new Error('Only PDF, JPEG, and PNG files are allowed'), false)
+  }
+}
 
 const upload = multer({
   storage,
+  fileFilter,
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      return cb(new Error('Only PDF, JPEG, and PNG files are allowed'));
-    }
+})
 
-    cb(null, true);
-  },
-});
-
-module.exports = {
-  single: upload.single('file'),
-  array: upload.array('files'),
-};
+module.exports = upload

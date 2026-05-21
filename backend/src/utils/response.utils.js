@@ -1,9 +1,9 @@
-const successResponse = (res, data = {}, message = 'Success', statusCode = 200) => {
-  return res.status(statusCode).json({ success: true, data, message });
-};
+const sendSuccess = (res, data = {}, message = 'Success', statusCode = 200) => {
+  return res.status(statusCode).json({ success: true, message, data })
+}
 
-const errorResponse = (res, error = 'Internal server error', message = 'Request failed', statusCode = 500) => {
-  return res.status(statusCode).json({ success: false, error, message });
-};
+const sendError = (res, message = 'Something went wrong', statusCode = 500, error = null) => {
+  return res.status(statusCode).json({ success: false, message, error: error || message })
+}
 
-module.exports = { successResponse, errorResponse };
+module.exports = { sendSuccess, sendError }

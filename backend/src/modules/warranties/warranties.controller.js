@@ -1,49 +1,24 @@
-const warrantiesService = require('./warranties.service');
-const { successResponse } = require('../../utils/response.utils');
+const service = require('./warranties.service')
+const { sendSuccess } = require('../../utils/response.utils')
 
-const listWarranties = async (req, res, next) => {
-  try {
-    const warranties = await warrantiesService.listWarranties(req.user.id);
-    return successResponse(res, warranties, 'Warranties fetched successfully');
-  } catch (error) {
-    next(error);
-  }
-};
+const getAll = async (req, res, next) => {
+  try { sendSuccess(res, await service.getAll(req.user.id), 'Warranties fetched') } catch (err) { next(err) }
+}
 
-const createWarranty = async (req, res, next) => {
-  try {
-    const warranty = await warrantiesService.createWarranty(req.user.id, req.body);
-    return successResponse(res, warranty, 'Warranty created successfully', 201);
-  } catch (error) {
-    next(error);
-  }
-};
+const getOne = async (req, res, next) => {
+  try { sendSuccess(res, await service.getOne(req.params.id, req.user.id), 'Warranty fetched') } catch (err) { next(err) }
+}
 
-const getWarranty = async (req, res, next) => {
-  try {
-    const warranty = await warrantiesService.getWarranty(req.user.id, req.params.id);
-    return successResponse(res, warranty, 'Warranty fetched successfully');
-  } catch (error) {
-    next(error);
-  }
-};
+const create = async (req, res, next) => {
+  try { sendSuccess(res, await service.create(req.user.id, req.body), 'Warranty created', 201) } catch (err) { next(err) }
+}
 
-const updateWarranty = async (req, res, next) => {
-  try {
-    const warranty = await warrantiesService.updateWarranty(req.user.id, req.params.id, req.body);
-    return successResponse(res, warranty, 'Warranty updated successfully');
-  } catch (error) {
-    next(error);
-  }
-};
+const update = async (req, res, next) => {
+  try { sendSuccess(res, await service.update(req.params.id, req.user.id, req.body), 'Warranty updated') } catch (err) { next(err) }
+}
 
-const getExpiringWarranties = async (req, res, next) => {
-  try {
-    const warranties = await warrantiesService.getExpiringWarranties(req.user.id);
-    return successResponse(res, warranties, 'Expiring warranties fetched successfully');
-  } catch (error) {
-    next(error);
-  }
-};
+const getExpiring = async (req, res, next) => {
+  try { sendSuccess(res, await service.getExpiring(req.user.id), 'Expiring warranties fetched') } catch (err) { next(err) }
+}
 
-module.exports = { listWarranties, createWarranty, getWarranty, updateWarranty, getExpiringWarranties };
+module.exports = { getAll, getOne, create, update, getExpiring }

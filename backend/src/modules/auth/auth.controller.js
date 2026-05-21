@@ -1,38 +1,35 @@
-const authService = require('./auth.service');
-const { successResponse } = require('../../utils/response.utils');
+const authService = require('./auth.service')
+const { sendSuccess, sendError } = require('../../utils/response.utils')
 
 const register = async (req, res, next) => {
   try {
-    const result = await authService.register(req.body);
-    return successResponse(res, result, 'User registered successfully', 201);
-  } catch (error) {
-    next(error);
+    const result = await authService.register(req.body)
+    sendSuccess(res, result, 'Registration successful', 201)
+  } catch (err) {
+    next(err)
   }
-};
+}
 
 const login = async (req, res, next) => {
   try {
-    const result = await authService.login(req.body);
-    return successResponse(res, result, 'Logged in successfully');
-  } catch (error) {
-    next(error);
+    const result = await authService.login(req.body)
+    sendSuccess(res, result, 'Login successful')
+  } catch (err) {
+    next(err)
   }
-};
+}
 
-const logout = async (req, res, next) => {
+const logout = (req, res) => {
+  sendSuccess(res, {}, 'Logged out successfully')
+}
+
+const getMe = async (req, res, next) => {
   try {
-    return successResponse(res, {}, 'Logged out successfully');
-  } catch (error) {
-    next(error);
+    const user = await authService.getMe(req.user.id)
+    sendSuccess(res, user, 'User fetched')
+  } catch (err) {
+    next(err)
   }
-};
+}
 
-const me = async (req, res, next) => {
-  try {
-    return successResponse(res, req.user, 'Current user fetched successfully');
-  } catch (error) {
-    next(error);
-  }
-};
-
-module.exports = { register, login, logout, me };
+module.exports = { register, login, logout, getMe }

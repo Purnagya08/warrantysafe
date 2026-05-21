@@ -9,13 +9,13 @@ export function useAuth() {
 
   const login = async (email: string, password: string) => {
     const res = await api.post<AuthResponse>('/auth/login', { email, password });
-    setAuth(res.data.user, res.data.access_token);
+    setAuth(res.data.user, res.data.token);
     router.push('/');
   };
 
   const register = async (name: string, email: string, password: string) => {
     const res = await api.post<AuthResponse>('/auth/register', { name, email, password });
-    setAuth(res.data.user, res.data.access_token);
+    setAuth(res.data.user, res.data.token);
     router.push('/');
   };
 

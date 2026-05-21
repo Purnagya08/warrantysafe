@@ -1,55 +1,39 @@
-const bcrypt = require('bcrypt');
-const { z } = require('zod');
-const prisma = require('../../config/db');
-const { signAccessToken } = require('../../utils/jwt.utils');
-const { AppError } = require('../../utils/errors');
+const bcrypt = require('bcryptjs')
+const prisma = require('../../config/db')
+const { generateToken } = require('../../utils/jwt.utils')
 
-const authSchema = z.object({
-  email: z.string().email().transform((value) => value.toLowerCase()),
-  password: z.string().min(6),
-  name: z.string().min(1).optional(),
-});
+const register = async ({ name, email, password }) => {
+  const existing = await prisma.user.findUnique({ where: { email } })
+  if (existing) throw { statusCode: 409, message: 'Email already registered' }
 
-const loginSchema = authSchema.pick({ email: true, password: true });
-
-const sanitizeUser = (user) => {
-  const { password, ...safeUser } = user;
-  return safeUser;
-};
-
-const register = async (payload) => {
-  const data = authSchema.parse(payload);
-  const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
-
-  if (existingUser) {
-    throw new AppError('Email is already registered', 409);
-  }
-
-  const hashedPassword = await bcrypt.hash(data.password, 10);
+  const hashed = await bcrypt.hash(password, 10)
   const user = await prisma.user.create({
-    data: { email: data.email, password: hashedPassword, name: data.name },
-  });
-  const token = signAccessToken(user);
+    data: { name, email, password: hashed },
+    select: { id: true, name: true, email: true, createdAt: true },
+  })
+  const token = generateToken({ id: user.id, email: user.email })
+  return { user, token }
+}
 
-  return { user: sanitizeUser(user), token };
-};
+const login = async ({ email, password }) => {
+  const user = await prisma.user.findUnique({ where: { email } })
+  if (!user) throw { statusCode: 401, message: 'Invalid email or password' }
 
-const login = async (payload) => {
-  const data = loginSchema.parse(payload);
-  const user = await prisma.user.findUnique({ where: { email: data.email } });
+  const valid = await bcrypt.compare(password, user.password)
+  if (!valid) throw { statusCode: 401, message: 'Invalid email or password' }
 
-  if (!user) {
-    throw new AppError('Invalid email or password', 401);
-  }
+  const token = generateToken({ id: user.id, email: user.email })
+  const { password: _, ...safeUser } = user
+  return { user: safeUser, token }
+}
 
-  const isValidPassword = await bcrypt.compare(data.password, user.password);
+const getMe = async (userId) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, createdAt: true },
+  })
+  if (!user) throw { statusCode: 404, message: 'User not found' }
+  return user
+}
 
-  if (!isValidPassword) {
-    throw new AppError('Invalid email or password', 401);
-  }
-
-  const token = signAccessToken(user);
-  return { user: sanitizeUser(user), token };
-};
-
-module.exports = { register, login, sanitizeUser };
+module.exports = { register, login, getMe }

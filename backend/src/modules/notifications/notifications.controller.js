@@ -1,31 +1,14 @@
-const notificationsService = require('./notifications.service');
-const { successResponse } = require('../../utils/response.utils');
+const service = require('./notifications.service')
+const { sendSuccess } = require('../../utils/response.utils')
 
-const listNotifications = async (req, res, next) => {
-  try {
-    const notifications = await notificationsService.listNotifications(req.user.id);
-    return successResponse(res, notifications, 'Notifications fetched successfully');
-  } catch (error) {
-    next(error);
-  }
-};
+const getAll = async (req, res, next) => {
+  try { sendSuccess(res, await service.getAll(req.user.id), 'Notifications fetched') } catch (err) { next(err) }
+}
+const markRead = async (req, res, next) => {
+  try { sendSuccess(res, await service.markRead(req.params.id, req.user.id), 'Marked as read') } catch (err) { next(err) }
+}
+const markAllRead = async (req, res, next) => {
+  try { sendSuccess(res, await service.markAllRead(req.user.id), 'All marked as read') } catch (err) { next(err) }
+}
 
-const markAsRead = async (req, res, next) => {
-  try {
-    const notification = await notificationsService.markAsRead(req.user.id, req.params.id);
-    return successResponse(res, notification, 'Notification marked as read');
-  } catch (error) {
-    next(error);
-  }
-};
-
-const markAllAsRead = async (req, res, next) => {
-  try {
-    const result = await notificationsService.markAllAsRead(req.user.id);
-    return successResponse(res, result, 'All notifications marked as read');
-  } catch (error) {
-    next(error);
-  }
-};
-
-module.exports = { listNotifications, markAsRead, markAllAsRead };
+module.exports = { getAll, markRead, markAllRead }

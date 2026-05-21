@@ -1,33 +1,20 @@
-const prisma = require('../../config/db');
-const { AppError } = require('../../utils/errors');
+const prisma = require('../../config/db')
 
-const listNotifications = async (userId) => {
+const getAll = async (userId) => {
   return prisma.notification.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
-  });
-};
+  })
+}
 
-const markAsRead = async (userId, notificationId) => {
-  const notification = await prisma.notification.findFirst({ where: { id: notificationId, userId } });
+const markRead = async (id, userId) => {
+  const notif = await prisma.notification.findFirst({ where: { id, userId } })
+  if (!notif) throw { statusCode: 404, message: 'Notification not found' }
+  return prisma.notification.update({ where: { id }, data: { isRead: true } })
+}
 
-  if (!notification) {
-    throw new AppError('Notification not found', 404);
-  }
+const markAllRead = async (userId) => {
+  return prisma.notification.updateMany({ where: { userId }, data: { isRead: true } })
+}
 
-  return prisma.notification.update({
-    where: { id: notificationId },
-    data: { isRead: true },
-  });
-};
-
-const markAllAsRead = async (userId) => {
-  const result = await prisma.notification.updateMany({
-    where: { userId, isRead: false },
-    data: { isRead: true },
-  });
-
-  return { updatedCount: result.count };
-};
-
-module.exports = { listNotifications, markAsRead, markAllAsRead };
+module.exports = { getAll, markRead, markAllRead }

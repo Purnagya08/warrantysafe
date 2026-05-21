@@ -1,36 +1,28 @@
-require('dotenv').config();
+const express = require('express')
+const cors = require('cors')
+const dotenv = require('dotenv')
+const errorMiddleware = require('./middlewares/error.middleware')
+const authMiddleware = require('./middlewares/auth.middleware')
 
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const authRoutes = require('./modules/auth/auth.routes');
-const usersRoutes = require('./modules/users/users.routes');
-const productsRoutes = require('./modules/products/products.routes');
-const warrantiesRoutes = require('./modules/warranties/warranties.routes');
-const documentsRoutes = require('./modules/documents/documents.routes');
-const repairsRoutes = require('./modules/repairs/repairs.routes');
-const notificationsRoutes = require('./modules/notifications/notifications.routes');
-const errorMiddleware = require('./middlewares/error.middleware');
-const { successResponse, errorResponse } = require('./utils/response.utils');
+dotenv.config()
 
-const app = express();
+const app = express()
 
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.resolve(process.cwd(), process.env.UPLOADS_DIR || 'uploads')));
+app.use(cors({ origin: 'http://localhost:3000', credentials: true }))
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use('/uploads', express.static('uploads'))
 
-app.get('/health', (req, res) => successResponse(res, { status: 'ok' }, 'WarrantySafe API is healthy'));
+// Routes
+app.use('/api/auth', require('./modules/auth/auth.routes'))
+app.use('/api/products', authMiddleware, require('./modules/products/products.routes'))
+app.use('/api/warranties', authMiddleware, require('./modules/warranties/warranties.routes'))
+app.use('/api/documents', authMiddleware, require('./modules/documents/documents.routes'))
+app.use('/api/repairs', authMiddleware, require('./modules/repairs/repairs.routes'))
+app.use('/api/notifications', authMiddleware, require('./modules/notifications/notifications.routes'))
 
-app.use('/api/auth', authRoutes);
-app.use('/api/users', usersRoutes);
-app.use('/api/products', productsRoutes);
-app.use('/api/warranties', warrantiesRoutes);
-app.use('/api/documents', documentsRoutes);
-app.use('/api/repairs', repairsRoutes);
-app.use('/api/notifications', notificationsRoutes);
+app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }))
 
-app.use((req, res) => errorResponse(res, 'Route not found', 'Not found', 404));
-app.use(errorMiddleware);
+app.use(errorMiddleware)
 
-module.exports = app;
+module.exports = app

@@ -1,9 +1,10 @@
-require('dotenv').config();
+const app = require('./src/app')
+const dotenv = require('dotenv')
 
-const app = require('./src/app');
+dotenv.config()
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000
 
 app.listen(PORT, () => {
-  console.log(`WarrantySafe API running on port ${PORT}`);
-});
+  console.log(`WarrantySafe backend running on http://localhost:${PORT}`)
+})

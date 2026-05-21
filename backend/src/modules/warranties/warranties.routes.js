@@ -1,14 +1,10 @@
-const express = require('express');
-const warrantiesController = require('./warranties.controller');
-const authMiddleware = require('../../middlewares/auth.middleware');
+const router = require('express').Router()
+const controller = require('./warranties.controller')
 
-const router = express.Router();
+router.get('/', controller.getAll)
+router.get('/expiring', controller.getExpiring)
+router.post('/', controller.create)
+router.get('/:id', controller.getOne)
+router.put('/:id', controller.update)
 
-router.use(authMiddleware);
-router.get('/', warrantiesController.listWarranties);
-router.post('/', warrantiesController.createWarranty);
-router.get('/expiring', warrantiesController.getExpiringWarranties);
-router.get('/:id', warrantiesController.getWarranty);
-router.put('/:id', warrantiesController.updateWarranty);
-
-module.exports = router;
+module.exports = router

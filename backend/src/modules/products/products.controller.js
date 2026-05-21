@@ -1,49 +1,39 @@
-const productsService = require('./products.service');
-const { successResponse } = require('../../utils/response.utils');
+const service = require('./products.service')
+const { sendSuccess, sendError } = require('../../utils/response.utils')
 
-const listProducts = async (req, res, next) => {
+const getAll = async (req, res, next) => {
   try {
-    const products = await productsService.listProducts(req.user.id);
-    return successResponse(res, products, 'Products fetched successfully');
-  } catch (error) {
-    next(error);
-  }
-};
+    const data = await service.getAll(req.user.id)
+    sendSuccess(res, data, 'Products fetched')
+  } catch (err) { next(err) }
+}
 
-const createProduct = async (req, res, next) => {
+const getOne = async (req, res, next) => {
   try {
-    const product = await productsService.createProduct(req.user.id, req.body);
-    return successResponse(res, product, 'Product created successfully', 201);
-  } catch (error) {
-    next(error);
-  }
-};
+    const data = await service.getOne(req.params.id, req.user.id)
+    sendSuccess(res, data, 'Product fetched')
+  } catch (err) { next(err) }
+}
 
-const getProduct = async (req, res, next) => {
+const create = async (req, res, next) => {
   try {
-    const product = await productsService.getProduct(req.user.id, req.params.id);
-    return successResponse(res, product, 'Product fetched successfully');
-  } catch (error) {
-    next(error);
-  }
-};
+    const data = await service.create(req.user.id, req.body)
+    sendSuccess(res, data, 'Product created', 201)
+  } catch (err) { next(err) }
+}
 
-const updateProduct = async (req, res, next) => {
+const update = async (req, res, next) => {
   try {
-    const product = await productsService.updateProduct(req.user.id, req.params.id, req.body);
-    return successResponse(res, product, 'Product updated successfully');
-  } catch (error) {
-    next(error);
-  }
-};
+    const data = await service.update(req.params.id, req.user.id, req.body)
+    sendSuccess(res, data, 'Product updated')
+  } catch (err) { next(err) }
+}
 
-const deleteProduct = async (req, res, next) => {
+const remove = async (req, res, next) => {
   try {
-    const result = await productsService.deleteProduct(req.user.id, req.params.id);
-    return successResponse(res, result, 'Product deleted successfully');
-  } catch (error) {
-    next(error);
-  }
-};
+    await service.remove(req.params.id, req.user.id)
+    sendSuccess(res, {}, 'Product deleted')
+  } catch (err) { next(err) }
+}
 
-module.exports = { listProducts, createProduct, getProduct, updateProduct, deleteProduct };
+module.exports = { getAll, getOne, create, update, remove }
