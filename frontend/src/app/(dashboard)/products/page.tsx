@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Eye, Filter, Plus, Search } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowDownUp, Eye, Filter, Plus, RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
-import api from "@/lib/api";
 import { formatDate, getWarrantyLabel } from "@/lib/utils";
 import { Product } from "@/types";
 
@@ -17,6 +17,7 @@ const MOCK_PRODUCTS: Product[] = [
 
 const CATEGORIES = ["All", "Television", "Smartphone", "Laptop", "Air Conditioner", "Refrigerator", "Washing Machine"];
 const STATUSES = ["All", "active", "expiring_soon", "expired"];
+type SortKey = "name" | "brand" | "category" | "purchaseDate" | "price" | "warrantyExpiry" | "warrantyStatus";
 
 function statusClass(status: string) {
   if (status === "active") return "badge-active";
@@ -24,38 +25,59 @@ function statusClass(status: string) {
   return "badge-expired";
 }
 
+function sortValue(product: Product, key: SortKey) {
+  if (key === "price") return product.price;
+  if (key === "purchaseDate" || key === "warrantyExpiry") return new Date(product[key]).getTime();
+  return String(product[key]).toLowerCase();
+}
+
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [status, setStatus] = useState("All");
+  const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: "name", direction: "asc" });
 
-  useEffect(() => {
-    api
-      .get("/api/products")
-      .then((res) => {
-        const data = res.data?.data;
-        if (data?.length > 0) setProducts(data);
-      })
-      .catch(() => {});
-  }, []);
+  const productsQuery = useQuery({
+    queryKey: ["mock-products"],
+    queryFn: async () => MOCK_PRODUCTS,
+    initialData: MOCK_PRODUCTS,
+    retry: 1,
+  });
+
+  const products = productsQuery.data;
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return products.filter((product) => {
-      const matchesSearch = !query || product.name.toLowerCase().includes(query) || product.brand.toLowerCase().includes(query);
-      const matchesCategory = category === "All" || product.category === category;
-      const matchesStatus = status === "All" || product.warrantyStatus === status;
-      return matchesSearch && matchesCategory && matchesStatus;
-    });
-  }, [category, products, search, status]);
+    return products
+      .filter((product) => {
+        const matchesSearch = !query || product.name.toLowerCase().includes(query) || product.brand.toLowerCase().includes(query);
+        const matchesCategory = category === "All" || product.category === category;
+        const matchesStatus = status === "All" || product.warrantyStatus === status;
+        return matchesSearch && matchesCategory && matchesStatus;
+      })
+      .sort((a, b) => {
+        const aValue = sortValue(a, sort.key);
+        const bValue = sortValue(b, sort.key);
+        const result = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+        return sort.direction === "asc" ? result : -result;
+      });
+  }, [category, products, search, sort, status]);
+
+  const updateSort = (key: SortKey) => {
+    setSort((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const sortLabel = (key: SortKey) => (sort.key === key ? (sort.direction === "asc" ? " asc" : " desc") : "");
 
   return (
     <div className="space-y-5">
       <div className="page-header">
         <div>
           <h1>Ownership Vault</h1>
-          <p className="page-kicker">{filtered.length} of {products.length} products shown</p>
+          <p className="page-kicker">{filtered.length} of {products.length} products shown {productsQuery.isFetching ? "- syncing" : ""}</p>
         </div>
         <Link href="/products/add" className="btn-primary">
           <Plus size={16} />
@@ -87,45 +109,67 @@ export default function ProductsPage() {
       <div className="card p-0">
         <div className="section-title">
           <h4>Product Register</h4>
-          <span className="text-xs font-semibold text-[#6B7280]">Sortable table structure</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-[#6B7280]">Sortable table</span>
+            {productsQuery.isError && (
+              <button className="btn-secondary h-8 px-2 text-xs" onClick={() => productsQuery.refetch()} type="button">
+                <RefreshCw size={13} />
+                Retry
+              </button>
+            )}
+          </div>
         </div>
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Brand</th>
-                <th>Category</th>
-                <th>Purchase Date</th>
-                <th className="text-right">Price</th>
-                <th>Warranty Expiry</th>
-                <th>Status</th>
+                {[
+                  ["Product", "name"],
+                  ["Brand", "brand"],
+                  ["Category", "category"],
+                  ["Purchase Date", "purchaseDate"],
+                  ["Price", "price"],
+                  ["Warranty Expiry", "warrantyExpiry"],
+                  ["Status", "warrantyStatus"],
+                ].map(([label, key]) => (
+                  <th className={`sortable-th ${key === "price" ? "text-right" : ""}`} key={key}>
+                    <button onClick={() => updateSort(key as SortKey)} type="button">
+                      {label}{sortLabel(key as SortKey)} <ArrowDownUp size={12} />
+                    </button>
+                  </th>
+                ))}
                 <th className="w-20">Action</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((product) => (
-                <tr key={product._id}>
-                  <td>
-                    <Link href={`/products/${product._id}`} className="font-semibold text-[#B26A00] hover:underline">{product.name}</Link>
-                  </td>
-                  <td>{product.brand}</td>
-                  <td>{product.category}</td>
-                  <td>{formatDate(product.purchaseDate)}</td>
-                  <td className="text-right">Rs. {product.price?.toLocaleString("en-IN")}</td>
-                  <td>{formatDate(product.warrantyExpiry)}</td>
-                  <td><span className={`status-badge ${statusClass(product.warrantyStatus)}`}>{getWarrantyLabel(product.warrantyStatus)}</span></td>
-                  <td>
-                    <Link aria-label={`View ${product.name}`} href={`/products/${product._id}`} className="btn-secondary h-8 px-2">
-                      <Eye size={14} />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {productsQuery.isLoading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <tr key={index}>
+                      <td data-label="Product" colSpan={8}><div className="skeleton h-5 rounded" /></td>
+                    </tr>
+                  ))
+                : filtered.map((product) => (
+                    <tr key={product._id}>
+                      <td data-label="Product">
+                        <Link href={`/products/${product._id}`} className="font-semibold text-[#B26A00] hover:underline">{product.name}</Link>
+                      </td>
+                      <td data-label="Brand">{product.brand}</td>
+                      <td data-label="Category">{product.category}</td>
+                      <td data-label="Purchase Date">{formatDate(product.purchaseDate)}</td>
+                      <td data-label="Price" className="text-right">Rs. {product.price?.toLocaleString("en-IN")}</td>
+                      <td data-label="Warranty Expiry">{formatDate(product.warrantyExpiry)}</td>
+                      <td data-label="Status"><span className={`status-badge ${statusClass(product.warrantyStatus)}`}>{getWarrantyLabel(product.warrantyStatus)}</span></td>
+                      <td data-label="Action">
+                        <Link aria-label={`View ${product.name}`} href={`/products/${product._id}`} className="btn-secondary h-8 px-2">
+                          <Eye size={14} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && <div className="py-10 text-center text-[#6B7280]">No products match the selected filters.</div>}
+        {!productsQuery.isLoading && filtered.length === 0 && <div className="py-10 text-center text-[#6B7280]">No products match the selected filters.</div>}
       </div>
     </div>
   );

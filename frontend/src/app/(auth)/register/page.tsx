@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Shield } from "lucide-react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
+import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
+
+const registerSchema = z.object({
+  name: z.string().min(2, "Full name is required"),
+  email: z.email("Enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+type RegisterForm = z.infer<typeof registerSchema>;
 
 function errorMessage(error: unknown, fallback: string) {
   if (typeof error === "object" && error !== null && "response" in error) {
@@ -15,20 +25,22 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
-  const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const { register: createAccount } = useAuth();
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+  } = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { name: "", email: "", password: "" },
+  });
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoading(true);
+  const onSubmit = async (values: RegisterForm) => {
     try {
-      await register(form.name, form.email, form.password);
+      await createAccount(values.name, values.email, values.password);
       toast.success("Account created");
     } catch (error) {
       toast.error(errorMessage(error, "Registration failed"));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -44,22 +56,25 @@ export default function RegisterPage() {
           <h2>Create account</h2>
           <p className="mt-1 text-sm text-[#6B7280]">Create a compact ownership operations account.</p>
 
-          <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-5 space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div>
               <label className="input-label">Full Name</label>
-              <input className="input-field" onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Full name" required value={form.name} />
+              <input className="input-field" placeholder="Full name" {...register("name")} />
+              {errors.name && <p className="field-error">{errors.name.message}</p>}
             </div>
             <div>
               <label className="input-label">Email</label>
-              <input className="input-field" onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="you@example.com" required type="email" value={form.email} />
+              <input className="input-field" placeholder="you@example.com" type="email" {...register("email")} />
+              {errors.email && <p className="field-error">{errors.email.message}</p>}
             </div>
             <div>
               <label className="input-label">Password</label>
-              <input className="input-field" onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Password" required type="password" value={form.password} />
+              <input className="input-field" placeholder="Password" type="password" {...register("password")} />
+              {errors.password && <p className="field-error">{errors.password.message}</p>}
             </div>
 
-            <button className="btn-primary w-full" disabled={loading} type="submit">
-              {loading ? "Creating..." : "Create Account"}
+            <button className="btn-primary w-full" disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Creating..." : "Create Account"}
             </button>
           </form>
 

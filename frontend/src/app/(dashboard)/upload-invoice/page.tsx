@@ -1,26 +1,72 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useDropzone } from "react-dropzone";
-import { ArrowLeft, CheckCircle, FileText, Upload } from "lucide-react";
+import { ArrowLeft, CheckCircle, FileText, RefreshCw, Upload } from "lucide-react";
 import Link from "next/link";
-import api from "@/lib/api";
+import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
+import { z } from "zod";
+import api from "@/lib/api";
 
 type Step = "upload" | "review" | "done";
+
+const extractionSchema = z.object({
+  name: z.string().min(2, "Product name is required"),
+  brand: z.string().min(1, "Brand is required"),
+  category: z.string().min(1, "Category is required"),
+  purchaseDate: z.string().min(1, "Purchase date is required"),
+  price: z.string().min(1, "Price is required").refine((value) => Number(value) >= 0, "Enter a valid price"),
+  warrantyDuration: z.string().min(1, "Warranty duration is required").refine((value) => Number(value) > 0, "Enter warranty duration in months"),
+  serialNumber: z.string().optional(),
+});
+
+type ExtractionForm = z.infer<typeof extractionSchema>;
+
+const demoExtraction: ExtractionForm = {
+  name: 'Samsung 65" QLED TV',
+  brand: "Samsung",
+  category: "Television",
+  purchaseDate: "2024-12-01",
+  price: "85000",
+  warrantyDuration: "24",
+  serialNumber: "SM-TV-2024-001",
+};
+
+const confidence = [
+  { label: "Product name", score: 94 },
+  { label: "Purchase date", score: 88 },
+  { label: "Price", score: 91 },
+  { label: "Warranty duration", score: 68 },
+];
+
+function confidenceLevel(score: number) {
+  if (score >= 90) return { label: "High", className: "badge-active", bar: "#067D62" };
+  if (score >= 75) return { label: "Medium", className: "badge-expiring", bar: "#B7791F" };
+  return { label: "Low", className: "badge-expired", bar: "#C53030" };
+}
 
 export default function UploadInvoicePage() {
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [extracted, setExtracted] = useState({
-    name: "",
-    brand: "",
-    category: "",
-    purchaseDate: "",
-    price: "",
-    warrantyDuration: "",
-    serialNumber: "",
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    reset,
+  } = useForm<ExtractionForm>({
+    resolver: zodResolver(extractionSchema),
+    defaultValues: {
+      name: "",
+      brand: "",
+      category: "",
+      purchaseDate: "",
+      price: "",
+      warrantyDuration: "",
+      serialNumber: "",
+    },
   });
 
   const onDrop = useCallback((accepted: File[]) => {
@@ -40,18 +86,10 @@ export default function UploadInvoicePage() {
       const formData = new FormData();
       formData.append("file", file);
       const res = await api.post("/api/documents/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
-      if (res.data?.data) setExtracted(res.data.data);
+      reset(res.data?.data || demoExtraction);
       toast.success("Invoice processed");
     } catch {
-      setExtracted({
-        name: 'Samsung 65" QLED TV',
-        brand: "Samsung",
-        category: "Television",
-        purchaseDate: "2024-12-01",
-        price: "85000",
-        warrantyDuration: "24",
-        serialNumber: "SM-TV-2024-001",
-      });
+      reset(demoExtraction);
       toast.success("Invoice extracted with demo data");
     } finally {
       setLoading(false);
@@ -59,16 +97,13 @@ export default function UploadInvoicePage() {
     }
   };
 
-  const handleConfirm = async () => {
-    setLoading(true);
+  const handleConfirm = async (values: ExtractionForm) => {
     try {
-      await api.post("/api/products", { ...extracted, price: Number(extracted.price), warrantyDuration: Number(extracted.warrantyDuration) });
+      await api.post("/api/products", { ...values, price: Number(values.price), warrantyDuration: Number(values.warrantyDuration) });
       toast.success("Product added to vault");
       setStep("done");
     } catch {
       toast.error("Failed to save product");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -140,30 +175,53 @@ export default function UploadInvoicePage() {
 
       {step === "review" && (
         <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-          <div className="card">
+          <form className="card" onSubmit={handleSubmit(handleConfirm)}>
             <h4 className="mb-4">Extraction Review</h4>
             <div className="grid gap-4 md:grid-cols-2">
-              {Object.entries(extracted).map(([key, value]) => (
+              {[
+                ["Product name", "name"],
+                ["Brand", "brand"],
+                ["Category", "category"],
+                ["Purchase date", "purchaseDate"],
+                ["Price", "price"],
+                ["Warranty duration", "warrantyDuration"],
+                ["Serial number", "serialNumber"],
+              ].map(([label, key]) => (
                 <div key={key}>
-                  <label className="input-label">{key.replace(/([A-Z])/g, " $1")}</label>
-                  <input className="input-field" onChange={(event) => setExtracted({ ...extracted, [key]: event.target.value })} value={value} />
+                  <label className="input-label">{label}</label>
+                  <input className="input-field" {...register(key as keyof ExtractionForm)} />
+                  {errors[key as keyof ExtractionForm] && <p className="field-error">{errors[key as keyof ExtractionForm]?.message}</p>}
                 </div>
               ))}
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button className="btn-primary" disabled={loading} onClick={handleConfirm} type="button">{loading ? "Saving..." : "Confirm and Add to Vault"}</button>
+              <button className="btn-primary" disabled={isSubmitting} type="submit">{isSubmitting ? "Saving..." : "Confirm and Add to Vault"}</button>
+              <button className="btn-secondary" disabled={!file || loading} onClick={handleExtract} type="button">
+                <RefreshCw size={16} />
+                {loading ? "Retrying..." : "Retry Extraction"}
+              </button>
               <button className="btn-secondary" onClick={() => setStep("upload")} type="button">Re-upload</button>
             </div>
-          </div>
+          </form>
           <div className="card">
             <h4 className="mb-3">Confidence Indicators</h4>
             <div className="space-y-3">
-              {["Product name", "Purchase date", "Price", "Warranty duration"].map((item, index) => (
-                <div key={item}>
-                  <div className="mb-1 flex justify-between text-xs font-semibold"><span>{item}</span><span>{[94, 88, 91, 76][index]}%</span></div>
-                  <div className="h-2 rounded bg-[#E5E7EB]"><div className="h-2 rounded bg-[#067D62]" style={{ width: `${[94, 88, 91, 76][index]}%` }} /></div>
-                </div>
-              ))}
+              {confidence.map((item) => {
+                const level = confidenceLevel(item.score);
+                return (
+                  <div key={item.label}>
+                    <div className="mb-1 flex items-center justify-between gap-2 text-xs font-semibold">
+                      <span>{item.label}</span>
+                      <span className={`status-badge ${level.className}`}>{level.label} - {item.score}%</span>
+                    </div>
+                    <div className="h-2 rounded bg-[#E5E7EB]"><div className="h-2 rounded" style={{ background: level.bar, width: `${item.score}%` }} /></div>
+                  </div>
+                );
+              })}
+              <div className="rounded-md border border-[#E5E7EB] bg-[#F9FAFB] p-3 text-sm">
+                <p className="font-semibold">Overall OCR confidence score: 85%</p>
+                <p className="mt-1 text-xs text-[#6B7280]">Review medium and low confidence fields before confirming.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -176,7 +234,7 @@ export default function UploadInvoicePage() {
           <p className="mt-1 text-[#6B7280]">The extracted product record is now available in Ownership Vault.</p>
           <div className="mt-5 flex justify-center gap-2">
             <Link href="/products" className="btn-primary">View Products</Link>
-            <button className="btn-secondary" onClick={() => { setStep("upload"); setFile(null); }} type="button">Import Another</button>
+            <button className="btn-secondary" onClick={() => { setStep("upload"); setFile(null); reset(); }} type="button">Import Another</button>
           </div>
         </div>
       )}

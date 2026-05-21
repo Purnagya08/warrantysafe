@@ -1,52 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, FileUp, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
+import { z } from "zod";
 import api from "@/lib/api";
 
 const CATEGORIES = ["Television", "Smartphone", "Laptop", "Air Conditioner", "Refrigerator", "Washing Machine", "Microwave", "Furniture", "Audio", "Camera", "Vehicle", "Other"];
 
+const productSchema = z.object({
+  name: z.string().min(2, "Product name is required"),
+  brand: z.string().min(1, "Brand is required"),
+  category: z.string().min(1, "Category is required"),
+  purchaseDate: z.string().min(1, "Purchase date is required"),
+  price: z.string().min(1, "Price is required").refine((value) => Number(value) >= 0, "Enter a valid price"),
+  warrantyDuration: z.string().min(1, "Warranty duration is required").refine((value) => Number(value) > 0, "Enter warranty duration in months"),
+  serialNumber: z.string().optional(),
+  retailer: z.string().optional(),
+  warrantyType: z.string(),
+});
+
+type ProductForm = z.infer<typeof productSchema>;
+
 export default function AddProductPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    brand: "",
-    category: "",
-    purchaseDate: "",
-    price: "",
-    warrantyDuration: "",
-    serialNumber: "",
-    retailer: "",
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+  } = useForm<ProductForm>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      name: "",
+      brand: "",
+      category: "",
+      purchaseDate: "",
+      price: "",
+      warrantyDuration: "",
+      serialNumber: "",
+      retailer: "",
+      warrantyType: "manufacturer",
+    },
   });
 
-  const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoading(true);
+  const onSubmit = async (values: ProductForm) => {
     try {
       await api.post("/api/products", {
-        ...form,
-        price: Number(form.price),
-        warrantyDuration: Number(form.warrantyDuration),
+        ...values,
+        price: Number(values.price),
+        warrantyDuration: Number(values.warrantyDuration),
       });
       toast.success("Product added");
       router.push("/products");
     } catch {
       toast.error("Failed to add product");
-    } finally {
-      setLoading(false);
     }
   };
 
-  const field = (label: string, key: keyof typeof form, type = "text", placeholder = "") => (
+  const field = (label: string, key: keyof ProductForm, type = "text", placeholder = "") => (
     <div>
       <label className="input-label">{label}</label>
-      <input className="input-field" onChange={(event) => update(key, event.target.value)} placeholder={placeholder} type={type} value={form[key]} />
+      <input className="input-field" placeholder={placeholder} type={type} {...register(key)} />
+      {errors[key] && <p className="field-error">{errors[key]?.message}</p>}
     </div>
   );
 
@@ -64,7 +82,7 @@ export default function AddProductPage() {
         </div>
       </div>
 
-      <form className="grid gap-5 xl:grid-cols-[1fr_360px]" onSubmit={handleSubmit}>
+      <form className="grid gap-5 xl:grid-cols-[1fr_360px]" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-5">
           <div className="card">
             <h4 className="mb-4">Product Metadata</h4>
@@ -73,10 +91,11 @@ export default function AddProductPage() {
               {field("Brand", "brand", "text", "Samsung")}
               <div>
                 <label className="input-label">Category</label>
-                <select className="input-field" onChange={(event) => update("category", event.target.value)} value={form.category}>
+                <select className="input-field" {...register("category")}>
                   <option value="">Select category</option>
                   {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
                 </select>
+                {errors.category && <p className="field-error">{errors.category.message}</p>}
               </div>
               {field("Serial Number", "serialNumber", "text", "Optional")}
             </div>
@@ -97,7 +116,7 @@ export default function AddProductPage() {
               {field("Warranty Duration (months)", "warrantyDuration", "number", "12")}
               <div>
                 <label className="input-label">Warranty Type</label>
-                <select className="input-field" defaultValue="manufacturer">
+                <select className="input-field" {...register("warrantyType")}>
                   <option value="manufacturer">Manufacturer Warranty</option>
                   <option value="extended">Extended Warranty</option>
                   <option value="seller">Seller Support</option>
@@ -119,9 +138,9 @@ export default function AddProductPage() {
           <div className="card">
             <h4 className="mb-3">Actions</h4>
             <div className="space-y-2">
-              <button className="btn-primary w-full" disabled={loading} type="submit">
+              <button className="btn-primary w-full" disabled={isSubmitting} type="submit">
                 <Save size={16} />
-                {loading ? "Saving..." : "Save Product"}
+                {isSubmitting ? "Saving..." : "Save Product"}
               </button>
               <Link href="/products" className="btn-secondary w-full">Cancel</Link>
             </div>

@@ -1,10 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Shield } from "lucide-react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
+import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
+
+const loginSchema = z.object({
+  email: z.email("Enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginForm = z.infer<typeof loginSchema>;
 
 function errorMessage(error: unknown, fallback: string) {
   if (typeof error === "object" && error !== null && "response" in error) {
@@ -15,22 +25,23 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+  } = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoading(true);
+  const onSubmit = async (values: LoginForm) => {
     try {
-      await login(email, password);
+      await login(values.email, values.password);
       toast.success("Welcome back");
     } catch (error) {
       toast.error(errorMessage(error, "Login failed"));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -46,24 +57,26 @@ export default function LoginPage() {
           <h2>Sign in</h2>
           <p className="mt-1 text-sm text-[#6B7280]">Access your ownership operations console.</p>
 
-          <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-5 space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div>
               <label className="input-label">Email</label>
-              <input className="input-field" onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required type="email" value={email} />
+              <input className="input-field" placeholder="you@example.com" type="email" {...register("email")} />
+              {errors.email && <p className="field-error">{errors.email.message}</p>}
             </div>
 
             <div>
               <label className="input-label">Password</label>
               <div className="relative">
-                <input className="input-field pr-10" onChange={(event) => setPassword(event.target.value)} placeholder="Password" required type={showPassword ? "text" : "password"} value={password} />
+                <input className="input-field pr-10" placeholder="Password" type={showPassword ? "text" : "password"} {...register("password")} />
                 <button aria-label={showPassword ? "Hide password" : "Show password"} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280]" onClick={() => setShowPassword((value) => !value)} type="button">
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+              {errors.password && <p className="field-error">{errors.password.message}</p>}
             </div>
 
-            <button className="btn-primary w-full" disabled={loading} type="submit">
-              {loading ? "Signing in..." : "Sign In"}
+            <button className="btn-primary w-full" disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Signing in..." : "Sign In"}
             </button>
           </form>
 

@@ -2,11 +2,14 @@
 
 import {
   Bell,
+  BarChart3,
+  FileText,
   LayoutDashboard,
   Package,
   Settings,
   Shield,
   ShoppingBag,
+  Ticket,
   Upload,
   Wrench,
 } from "lucide-react";
@@ -18,6 +21,9 @@ const menuItems = [
   { label: "Ownership Vault", href: "/products", icon: Package },
   { label: "Warranties", href: "/warranties", icon: Shield },
   { label: "Repairs", href: "/repairs", icon: Wrench },
+  { label: "Tickets", href: "/tickets", icon: Ticket },
+  { label: "Documents", href: "/documents", icon: FileText },
+  { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Imports", href: "/upload-invoice", icon: Upload },
   { label: "Notifications", href: "/notifications", icon: Bell },
   { label: "Marketplace", href: "/marketplace", icon: ShoppingBag },
@@ -39,13 +45,16 @@ export default function Sidebar() {
               className={`flex h-11 items-center gap-3 border-l-4 px-4 text-sm font-semibold transition-colors ${
                 isActive
                   ? "border-[#FF9900] bg-[#131921] text-[#FF9900]"
-                  : "border-transparent text-gray-200 hover:bg-[#1B2531] hover:text-white"
+                  : "border-transparent text-gray-100 hover:bg-[#1B2531] hover:text-white"
               }`}
               href={item.href}
               key={item.href}
+              style={{
+                color: isActive ? "#FF9900" : "#F9FAFB",
+              }}
             >
-              <Icon size={16} />
-              <span>{item.label}</span>
+              <Icon size={16} color={isActive ? "#FF9900" : "#F9FAFB"} />
+              <span style={{ color: isActive ? "#FF9900" : "#F9FAFB" }}>{item.label}</span>
             </Link>
           );
         })}
