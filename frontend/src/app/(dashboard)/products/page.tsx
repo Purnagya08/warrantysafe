@@ -98,7 +98,7 @@ export default function ProductsPage() {
   const sortLabel = (key: SortKey) => (sort.key === key ? (sort.direction === "asc" ? " asc" : " desc") : "");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 bg-gray-50 min-h-full">
       <div className="page-header">
         <div>
           <h1>Ownership Vault</h1>
@@ -131,7 +131,7 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      <div className="card p-0">
+      <div className="card p-0 bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="section-title">
           <h4>Product Register</h4>
           <div className="flex items-center gap-2">

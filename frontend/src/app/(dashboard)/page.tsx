@@ -131,7 +131,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 bg-gray-50 min-h-screen">
       <div className="page-header">
         <div>
           <h1>Ownership Vault</h1>
@@ -170,7 +170,7 @@ export default function DashboardPage() {
             {statCards.map((card) => {
               const Icon = card.icon;
               return (
-                <div className="card metric-card" key={card.label}>
+                <div className="card metric-card bg-white rounded-lg shadow-sm p-6" key={card.label}>
                   <span className="icon-box">
                     <Icon size={19} style={{ color: card.color }} />
                   </span>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-            <div className="card p-0">
+            <div className="card p-0 bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="section-title">
                 <h4>Recent Imports</h4>
                 <Link href="/products" className="text-sm font-semibold text-[#B26A00]">View all</Link>
@@ -227,7 +227,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="card">
+              <div className="card bg-white rounded-lg shadow-sm p-6">
                 <div className="mb-3 flex items-center gap-2">
                   <CalendarClock size={18} className="text-[#B7791F]" />
                   <h4>Upcoming Expiry Timeline</h4>
@@ -256,7 +256,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="card">
+              <div className="card bg-white rounded-lg shadow-sm p-6">
                 <div className="mb-3 flex items-center gap-2">
                   <Wrench size={18} className="text-[#6B7280]" />
                   <h4>Repair Activity</h4>

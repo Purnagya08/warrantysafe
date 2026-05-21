@@ -69,7 +69,7 @@ export default function AddProductPage() {
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 bg-gray-50 min-h-screen">
       <div className="page-header">
         <div className="flex items-start gap-3">
           <Link href="/products" className="btn-secondary h-10 w-10 px-0" aria-label="Back to products">
@@ -84,7 +84,7 @@ export default function AddProductPage() {
 
       <form className="grid gap-5 xl:grid-cols-[1fr_360px]" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-5">
-          <div className="card">
+          <div className="card bg-white rounded-lg shadow-sm p-6">
             <h4 className="mb-4">Product Metadata</h4>
             <div className="grid gap-4 md:grid-cols-2">
               {field("Product Name", "name", "text", "Samsung 65 inch QLED TV")}
@@ -101,7 +101,7 @@ export default function AddProductPage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card bg-white rounded-lg shadow-sm p-6">
             <h4 className="mb-4">Purchase Details</h4>
             <div className="grid gap-4 md:grid-cols-3">
               {field("Purchase Date", "purchaseDate", "date")}
@@ -110,7 +110,7 @@ export default function AddProductPage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card bg-white rounded-lg shadow-sm p-6">
             <h4 className="mb-4">Warranty Information</h4>
             <div className="grid gap-4 md:grid-cols-2">
               {field("Warranty Duration (months)", "warrantyDuration", "number", "12")}
@@ -127,7 +127,7 @@ export default function AddProductPage() {
         </div>
 
         <aside className="space-y-5">
-          <div className="card">
+          <div className="card bg-white rounded-lg shadow-sm p-4">
             <h4 className="mb-4">Receipt Upload</h4>
             <div className="flex min-h-36 flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#D1D5DB] bg-[#F9FAFB] p-4 text-center">
               <FileUp size={24} className="mb-2 text-[#6B7280]" />
@@ -135,7 +135,7 @@ export default function AddProductPage() {
               <p className="mt-1 text-xs text-[#6B7280]">PDF, JPG, PNG up to 10 MB</p>
             </div>
           </div>
-          <div className="card">
+          <div className="card bg-white rounded-lg shadow-sm p-4">
             <h4 className="mb-3">Actions</h4>
             <div className="space-y-2">
               <button className="btn-primary w-full" disabled={isSubmitting} type="submit">
