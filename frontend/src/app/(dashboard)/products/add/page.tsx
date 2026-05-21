@@ -48,7 +48,7 @@ export default function AddProductPage() {
 
   const onSubmit = async (values: ProductForm) => {
     try {
-      await api.post("/api/products", {
+      await api.post("/products", {
         ...values,
         price: Number(values.price),
         warrantyDuration: Number(values.warrantyDuration),

@@ -1,86 +1,141 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  AlertTriangle,
-  CalendarClock,
-  FileUp,
-  Package,
-  Plus,
-  Shield,
-  Wrench,
-  XCircle,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CalendarClock, FileUp, Loader2, Package, Plus, Shield, Wrench, XCircle } from "lucide-react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { formatDate, getWarrantyLabel } from "@/lib/utils";
+import { ApiResponse, Product, Repair, Warranty } from "@/types";
 
-const MOCK_STATS = {
-  totalProducts: 12,
-  activeWarranties: 7,
-  expiringSoon: 3,
-  expired: 2,
-  recentProducts: [
-    { _id: "1", name: 'Samsung 65" QLED TV', brand: "Samsung", category: "Television", warrantyStatus: "active", warrantyExpiry: "2026-12-01", purchaseDate: "2024-12-01", price: 85000 },
-    { _id: "2", name: "iPhone 15 Pro", brand: "Apple", category: "Smartphone", warrantyStatus: "expiring_soon", warrantyExpiry: "2026-06-15", purchaseDate: "2025-06-15", price: 134900 },
-    { _id: "3", name: "LG 1.5 Ton AC", brand: "LG", category: "Air Conditioner", warrantyStatus: "expired", warrantyExpiry: "2025-03-10", purchaseDate: "2023-03-10", price: 42000 },
-    { _id: "4", name: "Dell XPS 15 Laptop", brand: "Dell", category: "Laptop", warrantyStatus: "active", warrantyExpiry: "2027-01-20", purchaseDate: "2025-01-20", price: 189000 },
-    { _id: "5", name: "Whirlpool Refrigerator", brand: "Whirlpool", category: "Refrigerator", warrantyStatus: "active", warrantyExpiry: "2027-08-05", purchaseDate: "2024-08-05", price: 35000 },
-  ],
+type WarrantyStatus = "active" | "expiring_soon" | "expired" | "unknown";
+type RepairWithProduct = Repair & {
+  product?: Pick<Product, "id" | "name">;
+  productName?: string;
+};
+type ExpiringWarranty = Warranty & {
+  product?: Pick<Product, "id" | "name">;
+  productName?: string;
 };
 
-const expiryTimeline = [
-  { product: "iPhone 15 Pro", date: "2026-06-15", note: "25 days remaining", status: "expiring_soon" },
-  { product: "Sony WH-1000XM5", date: "2026-07-08", note: "48 days remaining", status: "expiring_soon" },
-  { product: "Dell XPS 15 Laptop", date: "2027-01-20", note: "Extended support active", status: "active" },
-];
+const getWarrantyStatus = (endDate?: string): WarrantyStatus => {
+  if (!endDate) return "unknown";
+  const end = new Date(endDate);
+  const now = new Date();
+  const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysLeft < 0) return "expired";
+  if (daysLeft <= 30) return "expiring_soon";
+  return "active";
+};
 
-const repairActivity = [
-  { product: "iPhone 15 Pro", issue: "Screen repair", owner: "Apple Service", status: "In Progress" },
-  { product: "Samsung TV", issue: "Remote replacement", owner: "Vendor", status: "Open" },
-  { product: "LG AC", issue: "Cooling service", owner: "Rajesh Kumar", status: "Completed" },
-];
-
-const reminders = [
-  "Schedule AC filter maintenance before peak summer usage.",
-  "Upload refrigerator compressor warranty document.",
-  "Review marketplace service plan for laptop protection.",
-];
+const getDaysLeft = (endDate?: string) => {
+  if (!endDate) return null;
+  const end = new Date(endDate);
+  const now = new Date();
+  return Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+};
 
 function statusClass(status: string) {
   if (status === "active") return "badge-active";
   if (status === "expiring_soon") return "badge-expiring";
-  return "badge-expired";
+  if (status === "expired") return "badge-expired";
+  return "badge-neutral";
+}
+
+function repairStatusClass(status: Repair["status"]) {
+  if (status === "IN_PROGRESS") return "bg-blue-100 text-blue-800";
+  if (status === "COMPLETED") return "badge-active";
+  if (status === "CANCELLED") return "badge-expired";
+  return "badge-neutral";
+}
+
+function repairStatusLabel(status: Repair["status"]) {
+  return status.replaceAll("_", " ");
+}
+
+function formatOptionalDate(date?: string) {
+  return date ? formatDate(date) : "Not recorded";
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState(MOCK_STATS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [expiringWarranties, setExpiringWarranties] = useState<ExpiringWarranty[]>([]);
+  const [repairs, setRepairs] = useState<RepairWithProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    api
-      .get("/api/products")
-      .then((res) => {
-        const products = res.data?.data || [];
-        if (products.length > 0) {
-          setStats((prev) => ({ ...prev, totalProducts: products.length, recentProducts: products.slice(0, 5) }));
-        }
-      })
-      .catch(() => {});
+    let active = true;
+
+    const loadDashboard = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const [productsRes, expiringRes, repairsRes] = await Promise.all([
+          api.get<ApiResponse<Product[]>>("/products"),
+          api.get<ApiResponse<ExpiringWarranty[]>>("/warranties/expiring"),
+          api.get<ApiResponse<RepairWithProduct[]>>("/repairs"),
+        ]);
+
+        if (!active) return;
+        setProducts(productsRes.data.data ?? []);
+        setExpiringWarranties(expiringRes.data.data ?? []);
+        setRepairs(repairsRes.data.data ?? []);
+      } catch {
+        if (!active) return;
+        setError("Unable to load dashboard data. Please try again.");
+        toast.error("Unable to load dashboard data");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadDashboard();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
+  const stats = useMemo(() => {
+    const activeWarranties = products.filter((product) => getWarrantyStatus(product.warranty?.endDate) === "active").length;
+    const expired = products.filter((product) => getWarrantyStatus(product.warranty?.endDate) === "expired").length;
+
+    return {
+      totalProducts: products.length,
+      activeWarranties,
+      expiringSoon: expiringWarranties.length,
+      expired,
+    };
+  }, [expiringWarranties.length, products]);
+
+  const recentProducts = useMemo(() => products.slice(0, 5), [products]);
+  const recentRepairs = useMemo(() => repairs.slice(0, 3), [repairs]);
+
   const statCards = [
-    { label: "Products", value: stats.totalProducts, icon: Package, color: "#111827" },
+    { label: "Total Products", value: stats.totalProducts, icon: Package, color: "#2563EB" },
     { label: "Active Warranties", value: stats.activeWarranties, icon: Shield, color: "#067D62" },
     { label: "Expiring Soon", value: stats.expiringSoon, icon: AlertTriangle, color: "#B7791F" },
     { label: "Expired", value: stats.expired, icon: XCircle, color: "#C53030" },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex min-h-[420px] items-center justify-center">
+        <div className="flex items-center gap-3 text-[#4B5563]">
+          <Loader2 size={22} className="animate-spin" />
+          <span className="font-semibold">Loading ownership command center...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div className="page-header">
         <div>
-          <h1>Dashboard</h1>
-          <p className="page-kicker">Operational overview of ownership, warranty risk, and service actions.</p>
+          <h1>Ownership Vault</h1>
+          <p className="page-kicker">Your complete product ownership command center</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/upload-invoice" className="btn-secondary">
@@ -94,120 +149,138 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {statCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div className="card metric-card" key={card.label}>
-              <span className="icon-box">
-                <Icon size={19} style={{ color: card.color }} />
-              </span>
-              <div>
-                <p className="text-2xl font-bold" style={{ color: card.color }}>{card.value}</p>
-                <p className="text-xs font-semibold text-[#6B7280]">{card.label}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-        <div className="card p-0">
-          <div className="section-title">
-            <h4>Recent Imports</h4>
-            <Link href="/products" className="text-sm font-semibold text-[#B26A00]">View all</Link>
-          </div>
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Brand</th>
-                  <th>Category</th>
-                  <th>Purchase</th>
-                  <th>Warranty Expiry</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentProducts.map((product) => (
-                  <tr key={product._id}>
-                    <td>
-                      <Link href={`/products/${product._id}`} className="font-semibold text-[#B26A00] hover:underline">
-                        {product.name}
-                      </Link>
-                    </td>
-                    <td>{product.brand}</td>
-                    <td>{product.category}</td>
-                    <td>{formatDate(product.purchaseDate)}</td>
-                    <td>{formatDate(product.warrantyExpiry)}</td>
-                    <td><span className={`status-badge ${statusClass(product.warrantyStatus)}`}>{getWarrantyLabel(product.warrantyStatus)}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {error && (
+        <div className="card border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]">
+          <p className="font-semibold">{error}</p>
         </div>
+      )}
 
-        <div className="space-y-4">
-          <div className="card">
-            <div className="mb-3 flex items-center gap-2">
-              <CalendarClock size={18} className="text-[#B7791F]" />
-              <h4>Upcoming Expiry Timeline</h4>
-            </div>
-            <div className="space-y-3">
-              {expiryTimeline.map((item) => (
-                <div className="border-l-2 border-[#E5E7EB] pl-3" key={item.product}>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-semibold">{item.product}</p>
-                    <span className={`status-badge ${statusClass(item.status)}`}>{getWarrantyLabel(item.status)}</span>
-                  </div>
-                  <p className="text-xs text-[#6B7280]">{formatDate(item.date)} - {item.note}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="mb-3 flex items-center gap-2">
-              <Wrench size={18} className="text-[#6B7280]" />
-              <h4>Repair Activity</h4>
-            </div>
-            <div className="space-y-2">
-              {repairActivity.map((repair) => (
-                <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-[#E5E7EB] py-2 last:border-0" key={`${repair.product}-${repair.issue}`}>
+      {products.length === 0 && !error ? (
+        <div className="card flex min-h-64 flex-col items-center justify-center text-center">
+          <Package size={34} className="mb-3 text-[#6B7280]" />
+          <h3>No products yet. Add your first product.</h3>
+          <Link href="/products/add" className="btn-primary mt-4">
+            <Plus size={16} />
+            Add Product
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {statCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <div className="card metric-card" key={card.label}>
+                  <span className="icon-box">
+                    <Icon size={19} style={{ color: card.color }} />
+                  </span>
                   <div>
-                    <p className="font-semibold">{repair.product}</p>
-                    <p className="text-xs text-[#6B7280]">{repair.issue} - {repair.owner}</p>
+                    <p className="text-2xl font-bold" style={{ color: card.color }}>{card.value}</p>
+                    <p className="text-xs font-semibold text-[#6B7280]">{card.label}</p>
                   </div>
-                  <span className="status-badge badge-neutral">{repair.status}</span>
                 </div>
-              ))}
+              );
+            })}
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+            <div className="card p-0">
+              <div className="section-title">
+                <h4>Recent Imports</h4>
+                <Link href="/products" className="text-sm font-semibold text-[#B26A00]">View all</Link>
+              </div>
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Brand</th>
+                      <th>Category</th>
+                      <th>Purchase Date</th>
+                      <th>Warranty Expiry</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentProducts.map((product) => {
+                      const warrantyStatus = getWarrantyStatus(product.warranty?.endDate);
+                      const statusLabel = warrantyStatus === "unknown" ? "No Warranty" : getWarrantyLabel(warrantyStatus);
+
+                      return (
+                        <tr key={product.id}>
+                          <td data-label="Product">
+                            <Link href={`/products/${product.id}`} className="font-semibold text-[#B26A00] hover:underline">
+                              {product.name}
+                            </Link>
+                          </td>
+                          <td data-label="Brand">{product.brand ?? "Unknown"}</td>
+                          <td data-label="Category">{product.category ?? "Not recorded"}</td>
+                          <td data-label="Purchase Date">{formatOptionalDate(product.purchaseDate)}</td>
+                          <td data-label="Warranty Expiry">{formatOptionalDate(product.warranty?.endDate)}</td>
+                          <td data-label="Status"><span className={`status-badge ${statusClass(warrantyStatus)}`}>{statusLabel}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="card">
+                <div className="mb-3 flex items-center gap-2">
+                  <CalendarClock size={18} className="text-[#B7791F]" />
+                  <h4>Upcoming Expiry Timeline</h4>
+                </div>
+                <div className="space-y-3">
+                  {expiringWarranties.length === 0 ? (
+                    <p className="text-sm text-[#6B7280]">No warranties expiring soon.</p>
+                  ) : (
+                    expiringWarranties.map((warranty) => {
+                      const daysLeft = getDaysLeft(warranty.endDate);
+                      const timelineStatus = daysLeft !== null && daysLeft <= 30 ? "expiring_soon" : "active";
+
+                      return (
+                        <div className="border-l-2 border-[#E5E7EB] pl-3" key={warranty.id}>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="font-semibold">{warranty.product?.name ?? warranty.productName ?? "Product"}</p>
+                            <span className={`status-badge ${statusClass(timelineStatus)}`}>{timelineStatus === "expiring_soon" ? "Expiring Soon" : "Active"}</span>
+                          </div>
+                          <p className="text-xs text-[#6B7280]">
+                            {formatOptionalDate(warranty.endDate)} - {daysLeft === null ? "Date not recorded" : `${daysLeft} days remaining`}
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="mb-3 flex items-center gap-2">
+                  <Wrench size={18} className="text-[#6B7280]" />
+                  <h4>Repair Activity</h4>
+                </div>
+                <div className="space-y-2">
+                  {recentRepairs.length === 0 ? (
+                    <p className="text-sm text-[#6B7280]">No recent repair activity.</p>
+                  ) : (
+                    recentRepairs.map((repair) => (
+                      <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-[#E5E7EB] py-2 last:border-0" key={repair.id}>
+                        <div>
+                          <p className="font-semibold">{repair.product?.name ?? repair.productName ?? "Product"}</p>
+                          <p className="text-xs text-[#6B7280]">{repair.issue}</p>
+                        </div>
+                        <span className={`status-badge ${repairStatusClass(repair.status)}`}>{repairStatusLabel(repair.status)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card">
-          <h4 className="mb-3">Maintenance Reminders</h4>
-          <div className="space-y-2">
-            {reminders.map((reminder) => (
-              <div className="flex items-start gap-2 text-sm" key={reminder}>
-                <AlertTriangle size={16} className="mt-0.5 shrink-0 text-[#B7791F]" />
-                <span>{reminder}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="card">
-          <h4 className="mb-3">Service Recommendations</h4>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Link href="/repairs" className="btn-secondary justify-start">Review open repairs</Link>
-            <Link href="/warranties" className="btn-secondary justify-start">Audit expiring warranties</Link>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

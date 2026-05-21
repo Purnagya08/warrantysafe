@@ -7,7 +7,7 @@ const extractDocumentData = async (filePath) => {
 }
 
 const upload = async (userId, productId, file) => {
-  const product = await prisma.product.findFirst({ where: { id: productId, userId } })
+  const product = await prisma.product.findFirst({ where: { id: productId } })
   if (!product) throw { statusCode: 404, message: 'Product not found' }
 
   const extractedData = await extractDocumentData(file.path)
@@ -15,7 +15,7 @@ const upload = async (userId, productId, file) => {
   return prisma.document.create({
     data: {
       productId,
-      userId,
+      userId: 'demo-user',
       fileName: file.originalname,
       fileUrl: `/${file.path.replace(/\\/g, '/')}`,
       fileSize: file.size,
@@ -27,20 +27,19 @@ const upload = async (userId, productId, file) => {
 
 const getAll = async (userId) => {
   return prisma.document.findMany({
-    where: { userId },
     include: { product: { select: { id: true, name: true } } },
     orderBy: { uploadedAt: 'desc' },
   })
 }
 
 const getOne = async (id, userId) => {
-  const doc = await prisma.document.findFirst({ where: { id, userId } })
+  const doc = await prisma.document.findFirst({ where: { id } })
   if (!doc) throw { statusCode: 404, message: 'Document not found' }
   return doc
 }
 
 const remove = async (id, userId) => {
-  const doc = await prisma.document.findFirst({ where: { id, userId } })
+  const doc = await prisma.document.findFirst({ where: { id } })
   if (!doc) throw { statusCode: 404, message: 'Document not found' }
   return prisma.document.delete({ where: { id } })
 }

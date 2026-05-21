@@ -85,7 +85,7 @@ export default function UploadInvoicePage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await api.post("/api/documents/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const res = await api.post("/documents/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
       reset(res.data?.data || demoExtraction);
       toast.success("Invoice processed");
     } catch {
@@ -99,7 +99,7 @@ export default function UploadInvoicePage() {
 
   const handleConfirm = async (values: ExtractionForm) => {
     try {
-      await api.post("/api/products", { ...values, price: Number(values.price), warrantyDuration: Number(values.warrantyDuration) });
+      await api.post("/products", { ...values, price: Number(values.price), warrantyDuration: Number(values.warrantyDuration) });
       toast.success("Product added to vault");
       setStep("done");
     } catch {

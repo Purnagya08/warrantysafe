@@ -8,8 +8,6 @@ import {
   Package,
   Settings,
   Shield,
-  ShoppingBag,
-  Ticket,
   Upload,
   Wrench,
 } from "lucide-react";
@@ -21,12 +19,10 @@ const menuItems = [
   { label: "Ownership Vault", href: "/products", icon: Package },
   { label: "Warranties", href: "/warranties", icon: Shield },
   { label: "Repairs", href: "/repairs", icon: Wrench },
-  { label: "Tickets", href: "/tickets", icon: Ticket },
   { label: "Documents", href: "/documents", icon: FileText },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Imports", href: "/upload-invoice", icon: Upload },
   { label: "Notifications", href: "/notifications", icon: Bell },
-  { label: "Marketplace", href: "/marketplace", icon: ShoppingBag },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
